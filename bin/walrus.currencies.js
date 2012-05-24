@@ -35,12 +35,15 @@
    *  {{ 36000 | :dollar }} // => $36,000
   */
 
-
-  Walrus.addFilter('dollar', function(value, decimalPlace) {
+  Walrus.addFilter('dollar', function(value, decimalPlace, showSymbol) {
+    var symbol;
+    if (showSymbol == null) showSymbol = true;
+    symbol = (showSymbol != null) && showSymbol ? '$' : '';
+    console.log('dollllar:', showSymbol, symbol);
     if (decimalPlace != null) {
-      return '$' + addCommas(value.toFixed(decimalPlace));
+      return symbol + addCommas(value.toFixed(decimalPlace));
     } else {
-      return '$' + addCommas(value);
+      return symbol + addCommas(value);
     }
   });
 

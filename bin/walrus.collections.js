@@ -27,7 +27,6 @@
    *  {{ end }}
   */
 
-
   Walrus.addFilter('first', function(array, count) {
     if (count != null) {
       return array.slice(0, count);
@@ -54,7 +53,6 @@
    *  {{ end }}
   */
 
-
   Walrus.addFilter('last', function(array, count) {
     if (count != null) {
       return array.slice(-count);
@@ -77,7 +75,6 @@
    *  {{ end }}
   */
 
-
   Walrus.addFilter('after', function(array, count) {
     return array.slice(count);
   });
@@ -96,7 +93,6 @@
    *  {{ end }}
   */
 
-
   Walrus.addFilter('before', function(array, count) {
     return array.slice(0, -count);
   });
@@ -113,7 +109,6 @@
    *
    *  {{ numbers | :count }} // => 5
   */
-
 
   Walrus.addFilter('count', function(array) {
     return array.length;
@@ -132,7 +127,6 @@
    *  {{ numbers | :any }} // => true
   */
 
-
   Walrus.addFilter('any', function(array) {
     return array.length > 0;
   });
@@ -149,7 +143,6 @@
    *
    *  {{ numbers | :empty }} // => false
   */
-
 
   Walrus.addFilter('empty', function(array) {
     return array.length === 0;

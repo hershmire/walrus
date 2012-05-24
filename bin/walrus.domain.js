@@ -13,7 +13,6 @@
    * Create a namespace for all of our domain methods
   */
 
-
   Walrus.Domain = {};
 
   /**
@@ -24,7 +23,6 @@
    * Parameters:
    *  name - The key for the object on `Walrus.Domain` to decorate with
   */
-
 
   Walrus.addFilter('as', function(value, name) {
     var item, _i, _len;

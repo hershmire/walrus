@@ -1,3 +1,4 @@
+<p>Car price (as is): {{car | :dollar ( null, false)}}</p>
 <p>Car price (as is): {{car | :dollar}}</p>
 <p>Car price (forced cents shown): {{car | :dollar( 0 )}}</p>
 <p>Sandwich price (as is): {{sandwich | :dollar}}</p>

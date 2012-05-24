@@ -6,9 +6,9 @@
  */
 (function() {
   var AST, Utils, Walrus,
-    __hasProp = {}.hasOwnProperty,
-    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
-    __slice = [].slice;
+    __hasProp = Object.prototype.hasOwnProperty,
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor; child.__super__ = parent.prototype; return child; },
+    __slice = Array.prototype.slice;
 
   Walrus = {
     VERSION: '0.7.0'
@@ -105,189 +105,103 @@ parseError: function parseError(str, hash) {
     throw new Error(str);
 },
 parse: function parse(input) {
-    var self = this,
-        stack = [0],
-        vstack = [null], // semantic value stack
-        lstack = [], // location stack
-        table = this.table,
-        yytext = '',
-        yylineno = 0,
-        yyleng = 0,
-        recovering = 0,
-        TERROR = 2,
-        EOF = 1;
-
-    //this.reductionCount = this.shiftCount = 0;
-
+    var self = this, stack = [0], vstack = [null], lstack = [], table = this.table, yytext = "", yylineno = 0, yyleng = 0, recovering = 0, TERROR = 2, EOF = 1;
     this.lexer.setInput(input);
     this.lexer.yy = this.yy;
     this.yy.lexer = this.lexer;
-    if (typeof this.lexer.yylloc == 'undefined')
+    if (typeof this.lexer.yylloc == "undefined")
         this.lexer.yylloc = {};
     var yyloc = this.lexer.yylloc;
     lstack.push(yyloc);
-
-    if (typeof this.yy.parseError === 'function')
+    if (typeof this.yy.parseError === "function")
         this.parseError = this.yy.parseError;
-
-    function popStack (n) {
-        stack.length = stack.length - 2*n;
+    function popStack(n) {
+        stack.length = stack.length - 2 * n;
         vstack.length = vstack.length - n;
         lstack.length = lstack.length - n;
     }
-
     function lex() {
         var token;
-        token = self.lexer.lex() || 1; // $end = 1
-        // if token isn't its numeric value, convert
-        if (typeof token !== 'number') {
+        token = self.lexer.lex() || 1;
+        if (typeof token !== "number") {
             token = self.symbols_[token] || token;
         }
         return token;
     }
-
-    var symbol, preErrorSymbol, state, action, a, r, yyval={},p,len,newState, expected;
+    var symbol, preErrorSymbol, state, action, a, r, yyval = {}, p, len, newState, expected;
     while (true) {
-        // retreive state number from top of stack
-        state = stack[stack.length-1];
-
-        // use default actions if available
+        state = stack[stack.length - 1];
         if (this.defaultActions[state]) {
             action = this.defaultActions[state];
         } else {
             if (symbol == null)
                 symbol = lex();
-            // read action for current state and first input
             action = table[state] && table[state][symbol];
         }
-
-        // handle parse error
-        _handle_error:
-        if (typeof action === 'undefined' || !action.length || !action[0]) {
-
+        if (typeof action === "undefined" || !action.length || !action[0]) {
             if (!recovering) {
-                // Report error
                 expected = [];
-                for (p in table[state]) if (this.terminals_[p] && p > 2) {
-                    expected.push("'"+this.terminals_[p]+"'");
-                }
-                var errStr = '';
+                for (p in table[state])
+                    if (this.terminals_[p] && p > 2) {
+                        expected.push("'" + this.terminals_[p] + "'");
+                    }
+                var errStr = "";
                 if (this.lexer.showPosition) {
-                    errStr = 'Parse error on line '+(yylineno+1)+":\n"+this.lexer.showPosition()+"\nExpecting "+expected.join(', ') + ", got '" + this.terminals_[symbol]+ "'";
+                    errStr = "Parse error on line " + (yylineno + 1) + ":\n" + this.lexer.showPosition() + "\nExpecting " + expected.join(", ") + ", got '" + this.terminals_[symbol] + "'";
                 } else {
-                    errStr = 'Parse error on line '+(yylineno+1)+": Unexpected " +
-                                  (symbol == 1 /*EOF*/ ? "end of input" :
-                                              ("'"+(this.terminals_[symbol] || symbol)+"'"));
+                    errStr = "Parse error on line " + (yylineno + 1) + ": Unexpected " + (symbol == 1?"end of input":"'" + (this.terminals_[symbol] || symbol) + "'");
                 }
-                this.parseError(errStr,
-                    {text: this.lexer.match, token: this.terminals_[symbol] || symbol, line: this.lexer.yylineno, loc: yyloc, expected: expected});
+                this.parseError(errStr, {text: this.lexer.match, token: this.terminals_[symbol] || symbol, line: this.lexer.yylineno, loc: yyloc, expected: expected});
             }
-
-            // just recovered from another error
-            if (recovering == 3) {
-                if (symbol == EOF) {
-                    throw new Error(errStr || 'Parsing halted.');
-                }
-
-                // discard current lookahead and grab another
+        }
+        if (action[0] instanceof Array && action.length > 1) {
+            throw new Error("Parse Error: multiple actions possible at state: " + state + ", token: " + symbol);
+        }
+        switch (action[0]) {
+        case 1:
+            stack.push(symbol);
+            vstack.push(this.lexer.yytext);
+            lstack.push(this.lexer.yylloc);
+            stack.push(action[1]);
+            symbol = null;
+            if (!preErrorSymbol) {
                 yyleng = this.lexer.yyleng;
                 yytext = this.lexer.yytext;
                 yylineno = this.lexer.yylineno;
                 yyloc = this.lexer.yylloc;
-                symbol = lex();
+                if (recovering > 0)
+                    recovering--;
+            } else {
+                symbol = preErrorSymbol;
+                preErrorSymbol = null;
             }
-
-            // try to recover from error
-            while (1) {
-                // check for error recovery rule in this state
-                if ((TERROR.toString()) in table[state]) {
-                    break;
-                }
-                if (state == 0) {
-                    throw new Error(errStr || 'Parsing halted.');
-                }
-                popStack(1);
-                state = stack[stack.length-1];
+            break;
+        case 2:
+            len = this.productions_[action[1]][1];
+            yyval.$ = vstack[vstack.length - len];
+            yyval._$ = {first_line: lstack[lstack.length - (len || 1)].first_line, last_line: lstack[lstack.length - 1].last_line, first_column: lstack[lstack.length - (len || 1)].first_column, last_column: lstack[lstack.length - 1].last_column};
+            r = this.performAction.call(yyval, yytext, yyleng, yylineno, this.yy, action[1], vstack, lstack);
+            if (typeof r !== "undefined") {
+                return r;
             }
-
-            preErrorSymbol = symbol; // save the lookahead token
-            symbol = TERROR;         // insert generic error symbol as new lookahead
-            state = stack[stack.length-1];
-            action = table[state] && table[state][TERROR];
-            recovering = 3; // allow 3 real symbols to be shifted before reporting a new error
+            if (len) {
+                stack = stack.slice(0, -1 * len * 2);
+                vstack = vstack.slice(0, -1 * len);
+                lstack = lstack.slice(0, -1 * len);
+            }
+            stack.push(this.productions_[action[1]][0]);
+            vstack.push(yyval.$);
+            lstack.push(yyval._$);
+            newState = table[stack[stack.length - 2]][stack[stack.length - 1]];
+            stack.push(newState);
+            break;
+        case 3:
+            return true;
         }
-
-        // this shouldn't happen, unless resolve defaults are off
-        if (action[0] instanceof Array && action.length > 1) {
-            throw new Error('Parse Error: multiple actions possible at state: '+state+', token: '+symbol);
-        }
-
-        switch (action[0]) {
-
-            case 1: // shift
-                //this.shiftCount++;
-
-                stack.push(symbol);
-                vstack.push(this.lexer.yytext);
-                lstack.push(this.lexer.yylloc);
-                stack.push(action[1]); // push state
-                symbol = null;
-                if (!preErrorSymbol) { // normal execution/no error
-                    yyleng = this.lexer.yyleng;
-                    yytext = this.lexer.yytext;
-                    yylineno = this.lexer.yylineno;
-                    yyloc = this.lexer.yylloc;
-                    if (recovering > 0)
-                        recovering--;
-                } else { // error just occurred, resume old lookahead f/ before error
-                    symbol = preErrorSymbol;
-                    preErrorSymbol = null;
-                }
-                break;
-
-            case 2: // reduce
-                //this.reductionCount++;
-
-                len = this.productions_[action[1]][1];
-
-                // perform semantic action
-                yyval.$ = vstack[vstack.length-len]; // default to $$ = $1
-                // default location, uses first token for firsts, last for lasts
-                yyval._$ = {
-                    first_line: lstack[lstack.length-(len||1)].first_line,
-                    last_line: lstack[lstack.length-1].last_line,
-                    first_column: lstack[lstack.length-(len||1)].first_column,
-                    last_column: lstack[lstack.length-1].last_column
-                };
-                r = this.performAction.call(yyval, yytext, yyleng, yylineno, this.yy, action[1], vstack, lstack);
-
-                if (typeof r !== 'undefined') {
-                    return r;
-                }
-
-                // pop off stack
-                if (len) {
-                    stack = stack.slice(0,-1*len*2);
-                    vstack = vstack.slice(0, -1*len);
-                    lstack = lstack.slice(0, -1*len);
-                }
-
-                stack.push(this.productions_[action[1]][0]);    // push nonterminal (reduce)
-                vstack.push(yyval.$);
-                lstack.push(yyval._$);
-                // goto new state = table[STATE][NONTERMINAL]
-                newState = table[stack[stack.length-2]][stack[stack.length-1]];
-                stack.push(newState);
-                break;
-
-            case 3: // accept
-                return true;
-        }
-
     }
-
     return true;
-}};
+}
+};
 /* Jison generated lexer */
 var lexer = (function(){
 var lexer = ({EOF:1,
@@ -325,9 +239,6 @@ unput:function (ch) {
 more:function () {
         this._more = true;
         return this;
-    },
-less:function (n) {
-        this._input = this.match.slice(n) + this._input;
     },
 pastInput:function () {
         var past = this.matched.substr(0, this.matched.length - this.match.length);
@@ -384,7 +295,6 @@ next:function () {
             this._input = this._input.slice(match[0].length);
             this.matched += match[0];
             token = this.performAction.call(this, this.yy, this, rules[index],this.conditionStack[this.conditionStack.length-1]);
-            if (this.done && this._input) this.done = false;
             if (token) return token;
             else return;
         }
@@ -469,7 +379,7 @@ case 21: return 5;
 break;
 }
 };
-lexer.rules = [/^(?:[^\x00]*?(?=(\{\{)))/,/^(?:[^\x00]+)/,/^(?:do\s*\}\}\n*)/,/^(?:\{\{\s*end\b)/,/^(?:\{\{=)/,/^(?:\{\{)/,/^(?:\}\}\n*)/,/^(?:@)/,/^(?::)/,/^(?:\|)/,/^(?:\.)/,/^(?:,)/,/^(?:\s+)/,/^(?:'[^\']*?')/,/^(?:"[^\"]*?")/,/^(?:\()/,/^(?:\))/,/^(?:true\b)/,/^(?:false\b)/,/^(?:-?\d+(\.\d+)?)/,/^(?:[a-zA-Z0-9\_\$]+)/,/^(?:$)/];
+lexer.rules = [/^[^\x00]*?(?=(\{\{))/,/^[^\x00]+/,/^do\s*\}\}\n*/,/^\{\{\s*end\b/,/^\{\{=/,/^\{\{/,/^\}\}\n*/,/^@/,/^:/,/^\|/,/^\./,/^,/,/^\s+/,/^'[^\']*?'/,/^"[^\"]*?"/,/^\(/,/^\)/,/^true\b/,/^false\b/,/^-?\d+(\.\d+)?/,/^[a-zA-Z0-9\_\$]+/,/^$/];
 lexer.conditions = {"mu":{"rules":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21],"inclusive":false},"INITIAL":{"rules":[0,1,21],"inclusive":true}};
 return lexer;})()
 parser.lexer = lexer;
@@ -494,24 +404,20 @@ if (typeof module !== 'undefined' && require.main === module) {
 }
 };
 
-
   /**
    * Utils
   */
-
 
   Utils = {
     /**
      * trims leading and trailing whitespace
     */
-
     trim: function(str) {
       return str.replace(/^\s+|\s+$/g, '');
     },
     /**
      * reduces a list into a single result
     */
-
     reduce: function(array, initial, method) {
       var item, memo, _i, _len;
       memo = initial;
@@ -524,21 +430,18 @@ if (typeof module !== 'undefined' && require.main === module) {
     /**
      * returns the string representation of `foo`
     */
-
     toString: function(foo) {
       return Object.prototype.toString.call(foo);
     },
     /**
      * returns whether or not `foo` is an array
     */
-
     isArray: function(foo) {
       return this.toString(foo) === '[object Array]';
     },
     /**
      * applies all properties from `bar` onto `foo`
     */
-
     extend: function(foo, bar) {
       var key, value, _results;
       _results = [];
@@ -551,7 +454,6 @@ if (typeof module !== 'undefined' && require.main === module) {
     /**
      * all of the nasty html characters to escape
     */
-
     escapees: /[&'"<>]/g,
     escapes: {
       '&': '&amp;',
@@ -563,7 +465,6 @@ if (typeof module !== 'undefined' && require.main === module) {
     /**
      * escapes nasty html characters
     */
-
     escape: function(value) {
       var _this = this;
       if ((value != null) && (value.replace != null)) {
@@ -582,7 +483,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * AST
   */
 
-
   AST = {};
 
   /**
@@ -590,7 +490,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * A simple wrapper node to signify safe compilation for the rest of
    * the nodes in the tree.
   */
-
 
   AST.SafeNode = (function() {
 
@@ -611,7 +510,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * A collection of nodes with the #compile interface, simply compiles
    * each of its nodes and returns the resulting array.
   */
-
 
   AST.NodeCollection = (function() {
 
@@ -639,7 +537,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * Compiles all of its nodes, then joins them.
   */
 
-
   AST.JoinedNodeCollection = (function(_super) {
 
     __extends(JoinedNodeCollection, _super);
@@ -661,13 +558,12 @@ if (typeof module !== 'undefined' && require.main === module) {
    * The root node of the document. Defaults to escaping its content.
   */
 
-
   AST.DocumentNode = (function(_super) {
 
     __extends(DocumentNode, _super);
 
     function DocumentNode() {
-      return DocumentNode.__super__.constructor.apply(this, arguments);
+      DocumentNode.__super__.constructor.apply(this, arguments);
     }
 
     DocumentNode.prototype.compile = function(context) {
@@ -682,7 +578,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * AST.ContentNode
    * A node with non-mustache content, probably HTML. We simply pass the content through.
   */
-
 
   AST.ContentNode = (function() {
 
@@ -705,7 +600,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *
    * `{{member}}`, for instance, will compile to `index[ 'member' ]`.
   */
-
 
   AST.MemberNode = (function() {
 
@@ -735,19 +629,18 @@ if (typeof module !== 'undefined' && require.main === module) {
    * `{{member( )}}`, for instance, will compile to `index[ 'member' ]( )`.
   */
 
-
   AST.MethodNode = (function() {
 
     function MethodNode(path, _arguments) {
       this.path = path;
-      this["arguments"] = _arguments;
+      this.arguments = _arguments;
     }
 
     MethodNode.prototype.compile = function(index, context, root, safe) {
       if (index[this.path] == null) {
         throw new Error("Cannot find any method named '" + this.path + "' in " + index + ".");
       }
-      return index[this.path].apply(index, this["arguments"].compile(context, root, safe));
+      return index[this.path].apply(index, this.arguments.compile(context, root, safe));
     };
 
     return MethodNode;
@@ -776,7 +669,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{end}}
   */
 
-
   AST.ThisNode = (function() {
 
     function ThisNode() {}
@@ -799,7 +691,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * the object path from the current context, while `{{@foo.bar.baz}}` will
    * start back up at the root view object.
   */
-
 
   AST.PathNode = (function() {
 
@@ -837,7 +728,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * and `NumberNode`.
   */
 
-
   AST.PrimitiveNode = (function() {
 
     function PrimitiveNode(value) {
@@ -869,7 +759,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{ end }}
   */
 
-
   AST.ExpressionNode = (function() {
 
     function ExpressionNode(paths, filters) {
@@ -894,7 +783,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *
    * Will throw an error if the named helper is not defined in `Walrus.Helpers`.
   */
-
 
   AST.BlockNode = (function() {
 
@@ -924,12 +812,11 @@ if (typeof module !== 'undefined' && require.main === module) {
    * Will throw an error if the named filter is not defined in `Walrus.Filters`.
   */
 
-
   AST.FilterNode = (function() {
 
     function FilterNode(name, _arguments) {
       this.name = name;
-      this["arguments"] = _arguments;
+      this.arguments = _arguments;
       if (Walrus.Filters[this.name] == null) {
         throw new Error("Cannot find any filter named '" + this.name + "'.");
       }
@@ -937,7 +824,7 @@ if (typeof module !== 'undefined' && require.main === module) {
 
     FilterNode.prototype.apply = function(value, context, root, safe) {
       var _ref;
-      return (_ref = Walrus.Filters)[this.name].apply(_ref, [value].concat(__slice.call(this["arguments"].compile(context, root, safe))));
+      return (_ref = Walrus.Filters)[this.name].apply(_ref, [value].concat(__slice.call(this.arguments.compile(context, root, safe))));
     };
 
     return FilterNode;
@@ -949,7 +836,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * A collection of filters. Filters are applied to the expression
    * in order from left to right.
   */
-
 
   AST.FilterCollection = (function() {
 
@@ -973,7 +859,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    * Core Helpers
   */
 
-
   Walrus.Helpers = {};
 
   Walrus.addHelper = function(name, fn) {
@@ -994,7 +879,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{end}}
   */
 
-
   Walrus.addHelper('if', function(expression, context, root, safe, block) {
     if (expression.compile(context, root, safe)) {
       return block.compile(context, root, safe);
@@ -1014,7 +898,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{end}}
   */
 
-
   Walrus.addHelper('unless', function(expression, context, root, safe, block) {
     if (!expression.compile(context, root, safe)) {
       return block.compile(context, root, safe);
@@ -1029,17 +912,14 @@ if (typeof module !== 'undefined' && require.main === module) {
    * for each member of the array. The compiled blocks are then joined.
   */
 
-
   Walrus.addHelper('each', function(expression, context, root, safe, block) {
     var array, index, item, items;
     array = expression.compile(context, root, safe);
-    if (!Walrus.Utils.isArray(array)) {
-      array = [array];
-    }
+    if (!Walrus.Utils.isArray(array)) array = [array];
     items = (function() {
-      var _i, _len, _results;
+      var _len, _results;
       _results = [];
-      for (index = _i = 0, _len = array.length; _i < _len; index = ++_i) {
+      for (index = 0, _len = array.length; index < _len; index++) {
         item = array[index];
         item['$index'] = index;
         item['$parent'] = context;
@@ -1062,7 +942,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{end}}
   */
 
-
   Walrus.addHelper('with', function(expression, context, root, safe, block) {
     var subcontext;
     subcontext = expression.compile(context, root, safe);
@@ -1073,7 +952,6 @@ if (typeof module !== 'undefined' && require.main === module) {
   /**
    * Core Filters
   */
-
 
   Walrus.Filters = {};
 
@@ -1098,7 +976,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{ end }}
   */
 
-
   Walrus.addFilter('equals', function(value, foo) {
     return value === foo;
   });
@@ -1115,7 +992,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *
    *  {{ 'active' | :if( true ) }} // => "active"
   */
-
 
   Walrus.addFilter('if', function(value, condition) {
     if (condition) {
@@ -1138,7 +1014,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{ 'active' | :unless( true ) }} // => ""
   */
 
-
   Walrus.addFilter('unless', function(value, condition) {
     if (!condition) {
       return value;
@@ -1159,7 +1034,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{ false | :or( "Not Specified" ) }} // => "Not Specified"
   */
 
-
   Walrus.addFilter('or', function(value, foo) {
     return value || foo;
   });
@@ -1177,7 +1051,6 @@ if (typeof module !== 'undefined' && require.main === module) {
    *  {{ @root | :log( 'wtf' ) }} // => Console logs: [object Object], 'wtf'
   */
 
-
   Walrus.addFilter('log', function() {
     if ((typeof console !== "undefined" && console !== null) && (console.log != null)) {
       return console.log.apply(console, ['[Walrus]'].concat(__slice.call(arguments)));
@@ -1187,7 +1060,6 @@ if (typeof module !== 'undefined' && require.main === module) {
   /**
    * Setup
   */
-
 
   Walrus.Parser = {
     parser: walrus,
@@ -1201,7 +1073,6 @@ if (typeof module !== 'undefined' && require.main === module) {
   /**
    * Export
   */
-
 
   (function(root, factory) {
     if (typeof exports === "object") {

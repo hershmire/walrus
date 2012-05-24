@@ -18,10 +18,12 @@ addCommas = (nStr) ->
  *  decimalPlace - the decimal place level to show cents
  *
  * Usage:
- *
+ *  
  *  {{ 36000 | :dollar( 2 ) }} // => $36,000.00
  *  {{ 36000 | :dollar }} // => $36,000
+ *  {{ 36000 | :dollar( null, false ) }} // => 36,000
 ###
-Walrus.addFilter 'dollar', ( value, decimalPlace ) -> 
-  if decimalPlace? then '$' + addCommas(value.toFixed decimalPlace) else '$' + addCommas value
+Walrus.addFilter 'dollar', ( value, decimalPlace, showSymbol=true ) -> 
+  symbol = if showSymbol? and showSymbol then '$' else ''
+  if decimalPlace? then symbol + addCommas(value.toFixed decimalPlace) else symbol + addCommas value
   
